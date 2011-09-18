@@ -18,6 +18,7 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/../../../libs/cocos2dx \
 # mapping (i.e /cygdrive/c/ instead of C:/)  
 LOCAL_LDLIBS := -L$(call host-path, $(LOCAL_PATH)/../../libs/armeabi) \
                 -lcocos2d -llog -lcocosdenshion \
+                -lGLESv1_CM \
                 -L$(call host-path, $(LOCAL_PATH)/../../../libs/cocos2dx/platform/third_party/android/libraries) -lcurl
             
 include $(BUILD_SHARED_LIBRARY)
