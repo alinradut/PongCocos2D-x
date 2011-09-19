@@ -10,6 +10,11 @@
 
 USING_NS_CC;
 
+#define CC_SPRITE_RECT(sprite) CCRectMake(CC_SPRITE_LEFT(sprite), \
+            CC_SPRITE_BOTTOM(sprite), \
+            CC_SPRITE_ACTUAL_WIDTH(sprite), \
+            CC_SPRITE_ACTUAL_HEIGHT(sprite))
+
 #define CC_SPRITE_ACTUAL_WIDTH(sprite) sprite->getContentSize().width * sprite->getScaleX()
 #define CC_SPRITE_ACTUAL_HEIGHT(sprite) sprite->getContentSize().height * sprite->getScaleY()
 
@@ -88,6 +93,7 @@ void GameScene::draw()
 
 void GameScene::update(cocos2d::ccTime dt)
 {
+    CCLog("initial velocity (%f, %f)", velocity_.x, velocity_.y);
     // bounce off the walls, account for the 1px line around the game area
     if (CC_SPRITE_LEFT(ball_) + velocity_.x <= gameArea_.origin.x + 1
         || CC_SPRITE_RIGHT(ball_) + velocity_.x >= gameArea_.origin.x + gameArea_.size.width - 1)
@@ -101,7 +107,35 @@ void GameScene::update(cocos2d::ccTime dt)
     {
         velocity_.y = -velocity_.y;
     }
-
+    
+    CCRect futureRect = CCRectMake(CC_SPRITE_LEFT(ball_) + velocity_.x, 
+                                   CC_SPRITE_BOTTOM(ball_) + velocity_.y, 
+                                   CC_SPRITE_ACTUAL_WIDTH(ball_), 
+                                   CC_SPRITE_ACTUAL_HEIGHT(ball_));
+    if (CCRect::CCRectIntersectsRect(futureRect, CC_SPRITE_RECT(userPaddle_)))
+    {
+        float leftSide = CC_SPRITE_LEFT(userPaddle_) + CC_SPRITE_ACTUAL_WIDTH(userPaddle_)/3;
+        float rightSide = CC_SPRITE_LEFT(userPaddle_) + CC_SPRITE_ACTUAL_WIDTH(userPaddle_)/3 * 2;
+        velocity_.y = -velocity_.y;
+        if (futureRect.origin.x + futureRect.size.width/2 < leftSide)
+        {
+            CCLog("increase speed by 10 percent, left side");
+            velocity_.x *= 1.1;
+        }
+        if (futureRect.origin.x + futureRect.size.width/2 > rightSide)
+        {
+            CCLog("increase speed by 10 percent, right side");
+            velocity_.x *= 1.1;
+        }
+        CCLog("bounce off the user's paddle");
+    }
+    else if (CCRect::CCRectIntersectsRect(futureRect, CC_SPRITE_RECT(cpuPaddle_)))
+    {
+        velocity_.y = -velocity_.y;
+        CCLog("bounce off the CPU's paddle");
+    }
+    
+    CCLog("updated velocity (%f, %f)", velocity_.x, velocity_.y);
     ball_->setPosition(ccp(ball_->getPosition().x + velocity_.x, ball_->getPosition().y + velocity_.y));
     
     if (CC_SPRITE_BOTTOM(ball_) <= gameArea_.origin.y + 1)
