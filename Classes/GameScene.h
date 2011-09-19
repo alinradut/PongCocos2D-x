@@ -39,8 +39,8 @@ private:
     
     bool userHasGrabbedThePaddle_;
     
-    float ballDirection_;
-    float ballVelocity_;
+    cocos2d::CCPoint velocity_;
+    cocos2d::CCPoint touchLocation_;
 };
 
 #endif // __GAME_SCENE_H__
