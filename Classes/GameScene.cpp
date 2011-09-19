@@ -108,15 +108,34 @@ void GameScene::update(cocos2d::ccTime dt)
         velocity_.y = -velocity_.y;
     }
     
+    // the rect of the future position of the ball
     CCRect futureRect = CCRectMake(CC_SPRITE_LEFT(ball_) + velocity_.x, 
                                    CC_SPRITE_BOTTOM(ball_) + velocity_.y, 
                                    CC_SPRITE_ACTUAL_WIDTH(ball_), 
                                    CC_SPRITE_ACTUAL_HEIGHT(ball_));
+    
+    // check if the future position of the ball will intersect the user's paddle
     if (CCRect::CCRectIntersectsRect(futureRect, CC_SPRITE_RECT(userPaddle_)))
     {
-        float leftSide = CC_SPRITE_LEFT(userPaddle_) + CC_SPRITE_ACTUAL_WIDTH(userPaddle_)/3;
-        float rightSide = CC_SPRITE_LEFT(userPaddle_) + CC_SPRITE_ACTUAL_WIDTH(userPaddle_)/3 * 2;
+        // change the direction of the ball
         velocity_.y = -velocity_.y;
+        
+        if ((futureRect.origin.x >= CC_SPRITE_LEFT(userPaddle_) 
+            && futureRect.origin.y <= CC_SPRITE_TOP(userPaddle_))
+            || (futureRect.origin.x <= CC_SPRITE_RIGHT(userPaddle_) 
+                && futureRect.origin.y <= CC_SPRITE_TOP(userPaddle_)))
+        {
+            velocity_.x = -velocity_.x;
+        }
+        else
+        {
+            velocity_.y = -velocity_.y;
+        }
+        // split the paddle in 3 parts
+        // [____|____|____]
+        // if the ball hits one the left or the right side, increase the ball speed
+/*        float leftSide = CC_SPRITE_LEFT(userPaddle_) + CC_SPRITE_ACTUAL_WIDTH(userPaddle_)/3;
+        float rightSide = CC_SPRITE_LEFT(userPaddle_) + CC_SPRITE_ACTUAL_WIDTH(userPaddle_)/3 * 2;
         if (futureRect.origin.x + futureRect.size.width/2 < leftSide)
         {
             CCLog("increase speed by 10 percent, left side");
@@ -126,7 +145,7 @@ void GameScene::update(cocos2d::ccTime dt)
         {
             CCLog("increase speed by 10 percent, right side");
             velocity_.x *= 1.1;
-        }
+        }*/
         CCLog("bounce off the user's paddle");
     }
     else if (CCRect::CCRectIntersectsRect(futureRect, CC_SPRITE_RECT(cpuPaddle_)))
