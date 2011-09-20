@@ -93,7 +93,6 @@ void GameScene::draw()
 
 void GameScene::update(cocos2d::ccTime dt)
 {
-    CCLog("initial velocity (%f, %f)", velocity_.x, velocity_.y);
     // bounce off the walls, account for the 1px line around the game area
     if (CC_SPRITE_LEFT(ball_) + velocity_.x <= gameArea_.origin.x + 1
         || CC_SPRITE_RIGHT(ball_) + velocity_.x >= gameArea_.origin.x + gameArea_.size.width - 1)
@@ -115,46 +114,14 @@ void GameScene::update(cocos2d::ccTime dt)
                                    CC_SPRITE_ACTUAL_HEIGHT(ball_));
     
     // check if the future position of the ball will intersect the user's paddle
-    if (CCRect::CCRectIntersectsRect(futureRect, CC_SPRITE_RECT(userPaddle_)))
+    if (!this->handleCollision(userPaddle_, futureRect))
     {
-        // change the direction of the ball
-        velocity_.y = -velocity_.y;
-        
-        if ((futureRect.origin.x >= CC_SPRITE_LEFT(userPaddle_) 
-            && futureRect.origin.y <= CC_SPRITE_TOP(userPaddle_))
-            || (futureRect.origin.x <= CC_SPRITE_RIGHT(userPaddle_) 
-                && futureRect.origin.y <= CC_SPRITE_TOP(userPaddle_)))
+        if (!this->handleCollision(cpuPaddle_, futureRect))
         {
-            velocity_.x = -velocity_.x;
+            ballIsEscapingPaddle_ = false;
         }
-        else
-        {
-            velocity_.y = -velocity_.y;
-        }
-        // split the paddle in 3 parts
-        // [____|____|____]
-        // if the ball hits one the left or the right side, increase the ball speed
-/*        float leftSide = CC_SPRITE_LEFT(userPaddle_) + CC_SPRITE_ACTUAL_WIDTH(userPaddle_)/3;
-        float rightSide = CC_SPRITE_LEFT(userPaddle_) + CC_SPRITE_ACTUAL_WIDTH(userPaddle_)/3 * 2;
-        if (futureRect.origin.x + futureRect.size.width/2 < leftSide)
-        {
-            CCLog("increase speed by 10 percent, left side");
-            velocity_.x *= 1.1;
-        }
-        if (futureRect.origin.x + futureRect.size.width/2 > rightSide)
-        {
-            CCLog("increase speed by 10 percent, right side");
-            velocity_.x *= 1.1;
-        }*/
-        CCLog("bounce off the user's paddle");
-    }
-    else if (CCRect::CCRectIntersectsRect(futureRect, CC_SPRITE_RECT(cpuPaddle_)))
-    {
-        velocity_.y = -velocity_.y;
-        CCLog("bounce off the CPU's paddle");
     }
     
-    CCLog("updated velocity (%f, %f)", velocity_.x, velocity_.y);
     ball_->setPosition(ccp(ball_->getPosition().x + velocity_.x, ball_->getPosition().y + velocity_.y));
     
     if (CC_SPRITE_BOTTOM(ball_) <= gameArea_.origin.y + 1)
@@ -168,10 +135,58 @@ void GameScene::update(cocos2d::ccTime dt)
     }
 }
 
-void GameScene::ccTouchesBegan(cocos2d::CCSet* touches, cocos2d::CCEvent* event)
+bool GameScene::handleCollision(cocos2d::CCSprite *paddle, cocos2d::CCRect ballRect)
 {
-    // get the touch object
-    CCTouch* touch = (CCTouch *)touches->anyObject();
+    if (CCRect::CCRectIntersectsRect(ballRect, CC_SPRITE_RECT(paddle)))
+    {
+        if (!ballIsEscapingPaddle_)
+        {
+            ballIsEscapingPaddle_ = true;
+            // check if the collision happens when the bottom of the ball is 
+            if (CC_SPRITE_TOP(paddle) > CC_SPRITE_BOTTOM(ball_))
+            {
+                if (paddle->getPosition().x <= ballRect.origin.x)
+                {
+                    CCLog("bounced off the right");
+                    velocity_.x *= -1;
+                    velocity_.y *= -1;
+                }
+                else if (paddle->getPosition().y >= ballRect.origin.x + ballRect.size.width)
+                {
+                    CCLog("bounced off the left side");
+                    velocity_.x *= -1;
+                    velocity_.y *= -1;
+                }
+            }
+            else
+            {
+                CCLog("normal bounce");
+                velocity_.y *= -1;
+            }
+            
+            // split the paddle in 3 equal parts
+            // [____|____|____]
+            // if the ball hits one the left or the right side, increase the ball speed
+            /*        float leftSide = CC_SPRITE_LEFT(paddle) + CC_SPRITE_ACTUAL_WIDTH(paddle)/3;
+             float rightSide = CC_SPRITE_LEFT(paddle) + CC_SPRITE_ACTUAL_WIDTH(paddle)/3 * 2;
+             if (futureRect.origin.x + futureRect.size.width/2 < leftSide)
+             {
+             CCLog("increase speed by 10 percent, left side");
+             velocity_.x *= 1.1;
+             }
+             if (futureRect.origin.x + futureRect.size.width/2 > rightSide)
+             {
+             CCLog("increase speed by 10 percent, right side");
+             velocity_.x *= 1.1;
+             }*/
+        }
+        return true;
+    }
+    return false;
+}
+
+void GameScene::handleUserTouch(CCTouch *touch)
+{
     // obtain the location of the touch
     CCPoint location = touch->locationInView(touch->view());
     // convert the location of the touch to GL coordinates
@@ -192,8 +207,8 @@ void GameScene::ccTouchesBegan(cocos2d::CCSet* touches, cocos2d::CCEvent* event)
         float diffX = fabs(destPosition.x - userPaddle_->getPosition().x);
         
         userPaddle_->stopAllActions();
-        
-        // if the touch was within the area of the paddle, "grab the paddle" and set its position to the touch location
+
+        // if the touch was within the area below the paddle, "grab" the paddle and set its position to the touch location
         if (diffX < userPaddle_->getContentSize().width/2 * userPaddle_->getScaleX() 
             || userHasGrabbedThePaddle_
             || (velocity_.x == 0 && velocity_.y == 0))
@@ -215,52 +230,18 @@ void GameScene::ccTouchesBegan(cocos2d::CCSet* touches, cocos2d::CCEvent* event)
     }
 }
 
+void GameScene::ccTouchesBegan(cocos2d::CCSet* touches, cocos2d::CCEvent* event)
+{
+    // get the touch object
+    CCTouch* touch = (CCTouch *)touches->anyObject();
+    this->handleUserTouch(touch);
+}
+
 void GameScene::ccTouchesMoved(CCSet* touches, CCEvent* event)
 {
     // get the touch object
     CCTouch* touch = (CCTouch *)touches->anyObject();
-    // obtain the location of the touch
-    CCPoint location = touch->locationInView(touch->view());
-    // convert the location of the touch to GL coordinates
-    location = CCDirector::sharedDirector()->convertToGL(location);
-    
-    // only process if the touch was inside the designated touch area
-    if (CCRect::CCRectContainsPoint(touchArea_, location))
-    {
-        // calculate how far left can the paddle go
-        float minX = gameArea_.origin.x + userPaddle_->getContentSize().width/2 * userPaddle_->getScaleX();
-        
-        // calculate how far right can the paddle go
-        float maxX = gameArea_.origin.x + gameArea_.size.width - userPaddle_->getContentSize().width/2 * userPaddle_->getScaleX();
-        
-        // calculate the final position of the paddle
-        CCPoint destPosition = ccp(MIN(MAX(minX, location.x), maxX), userPaddle_->getPosition().y);
-        
-        // calculate the distance from the paddle to the user's touch
-        float diffX = fabs(destPosition.x - userPaddle_->getPosition().x);
-        
-        userPaddle_->stopAllActions();
-        
-        // if the touch was within the area of the paddle, "grab the paddle" and set its position to the touch location
-        if (diffX < userPaddle_->getContentSize().width/2 * userPaddle_->getScaleX() 
-            || userHasGrabbedThePaddle_
-            || (velocity_.x == 0 && velocity_.y == 0))
-        {
-            userHasGrabbedThePaddle_ = true;
-            userPaddle_->setPosition(destPosition);
-            
-            // if the game hasn't started yet, move the ball with the paddle
-            if (velocity_.x == 0 && velocity_.y == 0)
-            {
-                ball_->setPosition(ccp(userPaddle_->getPosition().x, CC_SPRITE_TOP(userPaddle_) + CC_SPRITE_ACTUAL_HEIGHT(ball_)/2));
-            }
-        }
-        else
-        {
-            // otherwise animate the paddle to that position
-            userPaddle_->runAction(CCMoveTo::actionWithDuration(0.3 * diffX / gameArea_.size.width, destPosition));
-        }
-    }
+    this->handleUserTouch(touch);
 }
 
 void GameScene::ccTouchesEnded(CCSet* touches, CCEvent* event)

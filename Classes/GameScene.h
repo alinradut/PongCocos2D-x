@@ -27,6 +27,9 @@ public:
     virtual void ccTouchesMoved(cocos2d::CCSet* touches, cocos2d::CCEvent* event);
     virtual void ccTouchesEnded(cocos2d::CCSet* touches, cocos2d::CCEvent* event);
     
+    void handleUserTouch(cocos2d::CCTouch *touch);
+    bool handleCollision(cocos2d::CCSprite *paddle, cocos2d::CCRect ballRect);
+    
 	// implement the "static node()" method manually
 	LAYER_NODE_FUNC(GameScene);
 
@@ -38,7 +41,7 @@ private:
     cocos2d::CCRect touchArea_;
     
     bool userHasGrabbedThePaddle_;
-    
+    bool ballIsEscapingPaddle_;
     cocos2d::CCPoint velocity_;
     cocos2d::CCPoint touchLocation_;
 };
