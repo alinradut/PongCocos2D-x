@@ -99,14 +99,6 @@ void GameScene::draw()
 
 void GameScene::update(cocos2d::ccTime dt)
 {
-    // bounce off the walls, account for the 1px line around the game area
-    if (CC_SPRITE_LEFT(ball_) + velocity_.x <= gameArea_.origin.x + 1
-        || CC_SPRITE_RIGHT(ball_) + velocity_.x >= gameArea_.origin.x + gameArea_.size.width - 1)
-    {
-        velocity_.x = -velocity_.x;
-    }
-    
-    // temporary
     if (CC_SPRITE_BOTTOM(ball_) <= gameArea_.origin.y + 1)
     {
         CCLog("Player Lost");
@@ -115,6 +107,13 @@ void GameScene::update(cocos2d::ccTime dt)
     if (CC_SPRITE_TOP(ball_) >= gameArea_.origin.y + gameArea_.size.height - 1)
     {
         CCLog("CPU Lost");
+    }
+
+    // bounce off the walls, account for the 1px line around the game area
+    if (CC_SPRITE_LEFT(ball_) + velocity_.x <= gameArea_.origin.x + 1
+        || CC_SPRITE_RIGHT(ball_) + velocity_.x >= gameArea_.origin.x + gameArea_.size.width - 1)
+    {
+        velocity_.x = -velocity_.x;
     }
     
     // the rect of the future position of the ball
