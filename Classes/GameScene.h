@@ -28,7 +28,8 @@ public:
     virtual void ccTouchesEnded(cocos2d::CCSet* touches, cocos2d::CCEvent* event);
     
     void handleUserTouch(cocos2d::CCTouch *touch);
-    bool handleCollision(cocos2d::CCSprite *paddle, cocos2d::CCRect ballRect);
+    bool handleUserPaddleCollision(cocos2d::CCRect ballRect);
+    bool handleCpuPaddleCollision(cocos2d::CCRect ballRect);
     
 	// implement the "static node()" method manually
 	LAYER_NODE_FUNC(GameScene);

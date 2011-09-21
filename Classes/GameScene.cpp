@@ -24,6 +24,12 @@ USING_NS_CC;
 #define CC_SPRITE_TOP(sprite) sprite->getPosition().y + CC_SPRITE_ACTUAL_HEIGHT(sprite)/2
 #define CC_SPRITE_BOTTOM(sprite) sprite->getPosition().y - CC_SPRITE_ACTUAL_HEIGHT(sprite)/2
 
+#define SIDE_COLLISTION_VELOCITY_X_MODIFIER 1.1
+#define SIDE_COLLISTION_VELOCITY_Y_MODIFIER 0.8
+
+#define MIN_VELOCITY_Y  0.3
+#define SIGN(v) fabs(v)==v ? 1 : -1
+
 CCScene* GameScene::scene()
 {
 	CCScene *scene = CCScene::node();
@@ -101,29 +107,6 @@ void GameScene::update(cocos2d::ccTime dt)
     }
     
     // temporary
-    if (CC_SPRITE_BOTTOM(ball_) <= gameArea_.origin.y + 1
-        || CC_SPRITE_TOP(ball_) + velocity_.y >= gameArea_.origin.y + gameArea_.size.height - 1)
-    {
-        velocity_.y = -velocity_.y;
-    }
-    
-    // the rect of the future position of the ball
-    CCRect futureRect = CCRectMake(CC_SPRITE_LEFT(ball_) + velocity_.x, 
-                                   CC_SPRITE_BOTTOM(ball_) + velocity_.y, 
-                                   CC_SPRITE_ACTUAL_WIDTH(ball_), 
-                                   CC_SPRITE_ACTUAL_HEIGHT(ball_));
-    
-    // check if the future position of the ball will intersect the user's paddle
-    if (!this->handleCollision(userPaddle_, futureRect))
-    {
-        if (!this->handleCollision(cpuPaddle_, futureRect))
-        {
-            ballIsEscapingPaddle_ = false;
-        }
-    }
-    
-    ball_->setPosition(ccp(ball_->getPosition().x + velocity_.x, ball_->getPosition().y + velocity_.y));
-    
     if (CC_SPRITE_BOTTOM(ball_) <= gameArea_.origin.y + 1)
     {
         CCLog("Player Lost");
@@ -133,52 +116,92 @@ void GameScene::update(cocos2d::ccTime dt)
     {
         CCLog("CPU Lost");
     }
+    
+    // the rect of the future position of the ball
+    CCRect futureRect = CCRectMake(CC_SPRITE_LEFT(ball_) + velocity_.x, 
+                                   CC_SPRITE_BOTTOM(ball_) + velocity_.y, 
+                                   CC_SPRITE_ACTUAL_WIDTH(ball_), 
+                                   CC_SPRITE_ACTUAL_HEIGHT(ball_));
+    
+    // check if the future position of the ball will intersect the user's paddle
+    if (!this->handleUserPaddleCollision(futureRect))
+    {
+        if (!this->handleCpuPaddleCollision(futureRect))
+        {
+            ballIsEscapingPaddle_ = false;
+        }
+    }
+    
+    if (fabs(velocity_.y) < MIN_VELOCITY_Y)
+    {
+        velocity_.y = MIN_VELOCITY_Y * SIGN(velocity_.y);
+    }
+    
+    ball_->setPosition(ccp(ball_->getPosition().x + velocity_.x, ball_->getPosition().y + velocity_.y));
 }
 
-bool GameScene::handleCollision(cocos2d::CCSprite *paddle, cocos2d::CCRect ballRect)
+bool GameScene::handleUserPaddleCollision(cocos2d::CCRect ballRect)
 {
+    CCSprite *paddle = userPaddle_;
     if (CCRect::CCRectIntersectsRect(ballRect, CC_SPRITE_RECT(paddle)))
     {
         if (!ballIsEscapingPaddle_)
         {
             ballIsEscapingPaddle_ = true;
-            // check if the collision happens when the bottom of the ball is 
+            // check if the ball is below the paddle upper margin
             if (CC_SPRITE_TOP(paddle) > CC_SPRITE_BOTTOM(ball_))
             {
+                // check if the ball hits from the right
                 if (paddle->getPosition().x <= ballRect.origin.x)
                 {
-                    CCLog("bounced off the right");
-                    velocity_.x *= -1;
-                    velocity_.y *= -1;
+                    velocity_.x = -velocity_.x * SIDE_COLLISTION_VELOCITY_X_MODIFIER;
+                    velocity_.y = -velocity_.y * SIDE_COLLISTION_VELOCITY_Y_MODIFIER;
                 }
-                else if (paddle->getPosition().y >= ballRect.origin.x + ballRect.size.width)
+                // check if the ball hits from the left
+                else if (paddle->getPosition().x >= ballRect.origin.x + ballRect.size.width)
                 {
-                    CCLog("bounced off the left side");
-                    velocity_.x *= -1;
-                    velocity_.y *= -1;
+                    velocity_.x = -velocity_.x * SIDE_COLLISTION_VELOCITY_X_MODIFIER;
+                    velocity_.y = -velocity_.y * SIDE_COLLISTION_VELOCITY_Y_MODIFIER;
                 }
             }
             else
             {
-                CCLog("normal bounce");
                 velocity_.y *= -1;
             }
-            
-            // split the paddle in 3 equal parts
-            // [____|____|____]
-            // if the ball hits one the left or the right side, increase the ball speed
-            /*        float leftSide = CC_SPRITE_LEFT(paddle) + CC_SPRITE_ACTUAL_WIDTH(paddle)/3;
-             float rightSide = CC_SPRITE_LEFT(paddle) + CC_SPRITE_ACTUAL_WIDTH(paddle)/3 * 2;
-             if (futureRect.origin.x + futureRect.size.width/2 < leftSide)
-             {
-             CCLog("increase speed by 10 percent, left side");
-             velocity_.x *= 1.1;
-             }
-             if (futureRect.origin.x + futureRect.size.width/2 > rightSide)
-             {
-             CCLog("increase speed by 10 percent, right side");
-             velocity_.x *= 1.1;
-             }*/
+        }
+        return true;
+    }
+    return false;
+}
+
+bool GameScene::handleCpuPaddleCollision(cocos2d::CCRect ballRect)
+{
+    CCSprite *paddle = cpuPaddle_;
+    if (CCRect::CCRectIntersectsRect(ballRect, CC_SPRITE_RECT(paddle)))
+    {
+        if (!ballIsEscapingPaddle_)
+        {
+            ballIsEscapingPaddle_ = true;
+            // check if the ball is above the paddle lower margin
+            if (CC_SPRITE_TOP(paddle) > CC_SPRITE_BOTTOM(ball_))
+            {
+                // check if the ball hits from the right
+                if (paddle->getPosition().x <= ballRect.origin.x)
+                {
+                    velocity_.x = -velocity_.x * SIDE_COLLISTION_VELOCITY_X_MODIFIER;
+                    velocity_.y = -velocity_.y * SIDE_COLLISTION_VELOCITY_Y_MODIFIER;
+                }
+                // check if the ball hits from the left
+                else if (paddle->getPosition().x >= ballRect.origin.x + ballRect.size.width)
+                {
+                    velocity_.x = -velocity_.x * SIDE_COLLISTION_VELOCITY_X_MODIFIER;
+                    velocity_.y = -velocity_.y * SIDE_COLLISTION_VELOCITY_Y_MODIFIER;
+                }
+            }
+            else
+            {
+                velocity_.y *= -1;
+            }
         }
         return true;
     }
